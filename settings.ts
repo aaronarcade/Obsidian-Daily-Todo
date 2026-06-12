@@ -47,8 +47,6 @@ export class DailyTodoSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		new Setting(containerEl).setName("General").setHeading();
-
 		const folderPaths = getVaultFolderPaths(this.app);
 		const currentFolder = this.plugin.settings.todoFolder.trim();
 		if (currentFolder && !folderPaths.includes(currentFolder)) {
