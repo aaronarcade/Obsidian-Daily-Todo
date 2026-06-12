@@ -8,7 +8,7 @@ import {
 	normalizePath,
 } from "obsidian";
 import type DailyTodoPlugin from "./main";
-import type { DailyTodoSettings } from "./settings";
+import { getVaultFolderPaths, type DailyTodoSettings } from "./settings";
 import {
 	buildFileName,
 	ensureFolderExists,
@@ -43,13 +43,6 @@ export function needsFirstRunSetup(app: App, settings: DailyTodoSettings): boole
 export async function markSetupComplete(plugin: DailyTodoPlugin): Promise<void> {
 	plugin.settings.setupComplete = true;
 	await plugin.saveSettings();
-}
-
-function getVaultFolderPaths(app: App): string[] {
-	return app.vault
-		.getAllFolders()
-		.map((folder) => folder.path)
-		.sort((a, b) => a.localeCompare(b));
 }
 
 export function buildExampleYesterdayContent(
@@ -156,11 +149,17 @@ type FirstRunSetupHandlers = {
 
 class FirstRunSetupModal extends Modal {
 	private handlers: FirstRunSetupHandlers;
+	private onCloseWithoutAction: () => void;
 	closingForAction = false;
 
-	constructor(app: App, handlers: FirstRunSetupHandlers) {
+	constructor(
+		app: App,
+		handlers: FirstRunSetupHandlers,
+		onCloseWithoutAction: () => void
+	) {
 		super(app);
 		this.handlers = handlers;
+		this.onCloseWithoutAction = onCloseWithoutAction;
 	}
 
 	onOpen(): void {
@@ -220,6 +219,9 @@ class FirstRunSetupModal extends Modal {
 
 	onClose(): void {
 		this.contentEl.empty();
+		if (!this.closingForAction) {
+			this.onCloseWithoutAction();
+		}
 	}
 }
 
@@ -247,31 +249,25 @@ export function showFirstRunSetup(plugin: DailyTodoPlugin): Promise<void> {
 			}
 		};
 
-		const modal = new FirstRunSetupModal(plugin.app, {
-			onBrowseFolder: (folder) => {
-				void (async () => {
-					plugin.settings.todoFolder = folder;
-					await markSetupComplete(plugin);
-					await runRollover();
-				})();
+		new FirstRunSetupModal(
+			plugin.app,
+			{
+				onBrowseFolder: (folder) => {
+					void (async () => {
+						plugin.settings.todoFolder = folder;
+						await markSetupComplete(plugin);
+						await runRollover();
+					})();
+				},
+				onCreateDefault: () => {
+					void (async () => {
+						await setupDefaultTodoFolder(plugin);
+						await runRollover();
+					})();
+				},
+				onDismiss: finish,
 			},
-			onCreateDefault: () => {
-				void (async () => {
-					await setupDefaultTodoFolder(plugin);
-					await runRollover();
-				})();
-			},
-			onDismiss: finish,
-		});
-
-		const originalOnClose = modal.onClose.bind(modal);
-		modal.onClose = () => {
-			originalOnClose();
-			if (!modal.closingForAction) {
-				finish();
-			}
-		};
-
-		modal.open();
+			finish
+		).open();
 	});
 }

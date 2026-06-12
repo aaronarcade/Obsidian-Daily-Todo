@@ -1,13 +1,22 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, PluginSettingTab, Setting, TFolder } from "obsidian";
 import type DailyTodoPlugin from "./main";
 
-function getVaultFolderPaths(app: App): string[] {
-	const paths = app.vault
-		.getAllFolders()
-		.map((folder) => folder.path)
-		.sort((a, b) => a.localeCompare(b));
+export function getVaultFolderPaths(app: App): string[] {
+	const folders: string[] = [];
 
-	return paths;
+	const visit = (folder: TFolder): void => {
+		if (folder.path) {
+			folders.push(folder.path);
+		}
+		for (const child of folder.children) {
+			if (child instanceof TFolder) {
+				visit(child);
+			}
+		}
+	};
+
+	visit(app.vault.getRoot());
+	return folders.sort((a, b) => a.localeCompare(b));
 }
 
 export interface DailyTodoSettings {
@@ -38,7 +47,7 @@ export class DailyTodoSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl("h2", { text: "Daily TODO settings" });
+		new Setting(containerEl).setName("Daily TODO settings").setHeading();
 
 		const folderPaths = getVaultFolderPaths(this.app);
 		const currentFolder = this.plugin.settings.todoFolder.trim();

@@ -33,8 +33,8 @@ export default class DailyTodoPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		const saved = await this.loadData();
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
+		const saved = (await this.loadData()) as Partial<DailyTodoSettings> | null;
+		this.settings = { ...DEFAULT_SETTINGS, ...saved };
 		if (this.settings.setupComplete === undefined) {
 			this.settings.setupComplete =
 				saved != null && typeof saved === "object" && Object.keys(saved).length > 0;
