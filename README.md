@@ -1,18 +1,26 @@
 # Daily TODO
 
-An [Obsidian](https://obsidian.md) community plugin that creates today's daily TODO note and rolls over incomplete tasks from the most recent previous daily note.
+A **standalone** [Obsidian](https://obsidian.md) community plugin for a dedicated daily TODO workflow. Create dated TODO files in their own folder — separate from journal or daily notes — and roll incomplete tasks forward with one click. No Daily Notes or Periodic Notes plugin required.
+
+![Daily TODO demo](demo.gif)
 
 ## Features
 
-- **One-click rollover** — Use the ribbon icon or command palette to create today's TODO.
-- **Smart task extraction** — Finds unchecked `- [ ]` tasks and preserves nested sub-items and blank lines within each task block.
-- **Automatic source detection** — Locates the most recent dated TODO file before today in your configured folder.
+- **Standalone workflow** — Does not require the Daily Notes or Periodic Notes plugins.
+- **One-click creation** — Ribbon icon or command palette creates today's TODO file; not a hook on daily note creation.
+- **Dedicated TODO folder** — Dated files like `2025-06-09 TODO.md`, stored separately from journal or daily notes.
+- **TODO-section scoped** — Only rolls incomplete items from the `# TODO` section; stops at `## Notes` or other headings.
+- **Smart nested rollover** — Preserves nested content under incomplete tasks; skips completed checkbox subtrees.
+- **First-run setup** — Modal to browse an existing folder or create `_TODO` with a sample yesterday file for immediate testing.
+- **Frontmatter metadata** — `tags`, `date`, `type: daily-todo`, and `rolledOverFrom` wikilink to the source note.
+- **Folder recovery** — Re-prompts setup if the configured folder is deleted or moved.
+- **Automatic source detection** — Finds the most recent dated TODO file before today in your configured folder (including subfolders).
 - **Configurable naming** — Set the vault folder, file name suffix, frontmatter tag, and whether to include a `# TODO` heading.
-- **Legacy file support** — Automatically renames older files that used `YYYY-MM-DDtodo.md` naming to the current `YYYY-MM-DD todo.md` format.
+- **Legacy file support** — Automatically renames older files that used `YYYY-MM-DDtodo.md` naming to the current `YYYY-MM-DD TODO.md` format.
 
 ## Installation
 
-### From Obsidian Community Plugins (after publishing)
+### From Obsidian Community Plugins
 
 1. Open **Settings → Community plugins**.
 2. Turn off **Restricted mode** if needed.
@@ -26,35 +34,27 @@ An [Obsidian](https://obsidian.md) community plugin that creates today's daily T
 3. Copy `main.js` and `manifest.json` into that folder.
 4. Reload Obsidian and enable **Daily TODO** under **Settings → Community plugins**.
 
-### Development
-
-```bash
-git clone https://github.com/aaronarcade/Obsidian-Daily-Todo.git
-cd Obsidian-Daily-Todo
-npm install
-npm run dev
-```
-
-Symlink or copy the plugin folder into your vault's `.obsidian/plugins/` directory. Use `npm run dev` for watch mode during development.
-
-Build for production:
-
-```bash
-npm run build
-```
-
 ## Usage
 
-1. Configure the plugin under **Settings → Daily TODO settings**:
-   - **TODO folder** — Where daily notes are stored (default: `TODO`).
+### First run
+
+The first time you use the plugin (or if your configured folder no longer exists), a setup modal appears when you run **Create today's TODO**:
+
+1. **Browse folders** — Pick an existing vault folder for daily TODO notes.
+2. **Create `_TODO`** — Creates a `_TODO` folder with a sample yesterday note so you can test rollover immediately.
+
+After setup, today's TODO file is created automatically.
+
+### Daily workflow
+
+1. Configure the plugin under **Settings → Daily TODO settings** (optional — first-run setup handles the basics):
+   - **TODO folder** — Where daily TODO files are stored (default after setup: `_TODO`).
    - **File name suffix** — Appended after the date (default: `TODO`, producing `2025-06-09 TODO.md`).
    - **TODO tag** — Frontmatter tag added to new notes (default: `todo`).
    - **Include heading** — Whether to add a `# TODO` heading below the frontmatter.
-
 2. Create today's note using either:
    - The **list-checks** ribbon icon (**Create today's TODO**), or
    - **Command palette → Create today's TODO from previous day**.
-
 3. If today's file already exists, the plugin opens it instead of creating a duplicate.
 
 ### Example output
@@ -79,68 +79,50 @@ rolledOverFrom: "[[2025-06-08 TODO]]"
 
 ```
 
-## File naming
+The sample yesterday file created during first-run setup demonstrates nested rollover: completed sub-tasks (e.g. `- [x] Draft email…`) are left behind; incomplete siblings roll forward.
+
+### File naming
 
 Daily TODO files must start with a date in `YYYY-MM-DD` format:
 
-| Suffix setting | Example file name |
-|---|---|
-| `TODO` | `2025-06-09 TODO.md` |
-| *(empty)* | `2025-06-09.md` |
-| `todo` | `2025-06-09 todo.md` |
+| Suffix setting | Example file name    |
+| -------------- | -------------------- |
+| `TODO`         | `2025-06-09 TODO.md` |
+| *(empty)*      | `2025-06-09.md`      |
+| `todo`         | `2025-06-09 todo.md` |
 
-## Publishing to the Obsidian Community directory
+### Note structure
 
-Follow these steps when you are ready to share the plugin publicly.
+For best results, structure each daily TODO file like this:
 
-### Prerequisites
+```markdown
+# TODO
 
-- A public GitHub repository with this source code.
-- An [Obsidian account](https://obsidian.md).
-- A GitHub account linked to your Obsidian community profile.
+- [ ] Your tasks here
 
-### 1. Prepare the repository
+## Notes
 
-Ensure the default branch includes:
+Free-form notes that are never rolled over.
+```
 
-- `manifest.json` — accurate `id`, `version`, and `minAppVersion`
-- `README.md` — plugin description and usage (this file)
-- `LICENSE` — MIT license
-- `versions.json` — maps plugin versions to minimum Obsidian versions
+Only content between `# TODO` and `## Notes` (or the next top-level heading) is considered for rollover.
 
-The compiled `main.js` is **not** committed to the repo (see `.gitignore`). It is attached to GitHub releases instead.
+## Development
 
-### 2. Create a GitHub release
+```bash
+git clone https://github.com/aaronarcade/Obsidian-Daily-Todo.git
+cd Obsidian-Daily-Todo
+npm install
+npm run dev
+```
 
-1. Run `npm run build` to produce `main.js`.
-2. Confirm `manifest.json` `version` matches the release tag (semver `x.y.z`, e.g. `1.0.0`).
-3. [Create a GitHub release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release):
-   - **Tag**: must match `version` in `manifest.json` (e.g. `1.0.0`)
-   - **Assets**: attach `main.js` and `manifest.json` (no `styles.css` needed for this plugin)
-4. Optionally bump versions for future releases:
+Symlink or copy the plugin folder into your vault's `.obsidian/plugins/` directory. Use `npm run dev` for watch mode during development.
 
-   ```bash
-   npm version patch   # or minor / major
-   npm run build
-   git push && git push --tags
-   ```
+Build for production:
 
-   The `npm version` script runs `version-bump.mjs`, which updates `manifest.json` and `versions.json`.
-
-### 3. Submit to the community directory
-
-1. Go to [community.obsidian.md](https://community.obsidian.md) and sign in.
-2. Link your GitHub account in your profile.
-3. Select **Plugins → New plugin**.
-4. Enter your repository URL: `https://github.com/aaronarcade/Obsidian-Daily-Todo`
-5. Agree to the [developer policies](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines) and submit.
-
-The directory reads `manifest.json` from your default branch and downloads plugin assets from the GitHub release whose tag matches `version`. Automated review will flag anything that needs correction.
-
-### 4. After publishing
-
-- Announce in [Share & showcase](https://forum.obsidian.md/c/share-showcase/9) on the Obsidian forum.
-- For future updates: bump the version, create a new GitHub release with updated assets, and push the updated `manifest.json` to the default branch.
+```bash
+npm run build
+```
 
 ## License
 

@@ -3,8 +3,11 @@ import type { DailyTodoSettings } from "./settings";
 
 const DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})/;
 const UNCHECKED_TASK_PATTERN = /^\s*[-*+]\s+\[\s\]\s+/;
+const CHECKED_TASK_PATTERN = /^\s*[-*+]\s+\[[xX]\]\s+/;
 const LIST_ITEM_PATTERN = /^\s*(?:[-*+]\s+(?:\[[\sxX]\]\s+)?|\d+\.\s+)/;
 const FRONTMATTER_PATTERN = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/;
+const TODO_HEADING_PATTERN = /^#\s+TODO\s*$/i;
+const NOTES_HEADING_PATTERN = /^##\s+Notes\s*$/i;
 
 function getIndent(line: string): number {
 	const match = line.match(/^(\s*)/);
@@ -89,9 +92,111 @@ function buildLegacyFileName(date: string, suffix: string): string {
 	return safeSuffix ? `${date}${safeSuffix}.md` : `${date}.md`;
 }
 
+function stripFrontmatter(content: string): string {
+	return content.replace(FRONTMATTER_PATTERN, "");
+}
+
+function extractTodoSectionLines(content: string): string[] {
+	const lines = stripFrontmatter(content).split(/\r?\n/);
+	let start = 0;
+	let end = lines.length;
+
+	for (let i = 0; i < lines.length; i++) {
+		if (TODO_HEADING_PATTERN.test(lines[i].trim())) {
+			start = i + 1;
+			while (start < lines.length && lines[start].trim() === "") {
+				start++;
+			}
+			break;
+		}
+	}
+
+	for (let i = start; i < lines.length; i++) {
+		const trimmed = lines[i].trim();
+		if (NOTES_HEADING_PATTERN.test(trimmed)) {
+			end = i;
+			break;
+		}
+		if (/^#\s+/.test(trimmed) && !TODO_HEADING_PATTERN.test(trimmed)) {
+			end = i;
+			break;
+		}
+	}
+
+	return lines.slice(start, end);
+}
+
+function skipSubtree(lines: string[], start: number, blockIndent: number): number {
+	let j = start + 1;
+	while (j < lines.length) {
+		const line = lines[j];
+		if (line.trim() === "") {
+			const nextIdx = findNextNonEmptyLine(lines, j + 1);
+			if (nextIdx === -1 || getIndent(lines[nextIdx]) > blockIndent) {
+				j++;
+				continue;
+			}
+			break;
+		}
+		if (getIndent(line) <= blockIndent) {
+			break;
+		}
+		j++;
+	}
+	return j;
+}
+
+function collectNestedLines(
+	lines: string[],
+	start: number,
+	parentIndent: number
+): { lines: string[]; end: number } {
+	const result: string[] = [];
+	let j = start;
+
+	while (j < lines.length) {
+		const line = lines[j];
+
+		if (line.trim() === "") {
+			const nextIdx = findNextNonEmptyLine(lines, j + 1);
+			if (nextIdx === -1 || getIndent(lines[nextIdx]) > parentIndent) {
+				result.push(line);
+				j++;
+				continue;
+			}
+			break;
+		}
+
+		const indent = getIndent(line);
+		if (indent <= parentIndent) {
+			if (isBlockListItem(line)) {
+				break;
+			}
+			break;
+		}
+
+		if (CHECKED_TASK_PATTERN.test(line)) {
+			j = skipSubtree(lines, j, indent);
+			continue;
+		}
+
+		if (UNCHECKED_TASK_PATTERN.test(line)) {
+			result.push(line);
+			const nested = collectNestedLines(lines, j + 1, indent);
+			result.push(...nested.lines);
+			j = nested.end;
+			continue;
+		}
+
+		result.push(line);
+		j++;
+	}
+
+	return { lines: result, end: j };
+}
+
 function collectIncompleteTodoBlocks(content: string): { lines: string[]; todoCount: number } {
-	const withoutFrontmatter = content.replace(FRONTMATTER_PATTERN, "");
-	const lines = withoutFrontmatter.split(/\r?\n/);
+	const lines = extractTodoSectionLines(content);
 	const incomplete: string[] = [];
 	let todoCount = 0;
 
@@ -102,38 +207,10 @@ function collectIncompleteTodoBlocks(content: string): { lines: string[]; todoCo
 		}
 
 		todoCount++;
-		const parentIndent = getIndent(line);
 		incomplete.push(line);
-
-		let j = i + 1;
-		while (j < lines.length) {
-			const nextLine = lines[j];
-
-			if (nextLine.trim() === "") {
-				const nextContentIdx = findNextNonEmptyLine(lines, j + 1);
-				if (nextContentIdx === -1 || getIndent(lines[nextContentIdx]) > parentIndent) {
-					incomplete.push(nextLine);
-					j++;
-					continue;
-				}
-				break;
-			}
-
-			const nextIndent = getIndent(nextLine);
-			if (nextIndent > parentIndent) {
-				incomplete.push(nextLine);
-				j++;
-				continue;
-			}
-
-			if (nextIndent <= parentIndent && isBlockListItem(nextLine)) {
-				break;
-			}
-
-			break;
-		}
-
-		i = j - 1;
+		const nested = collectNestedLines(lines, i + 1, getIndent(line));
+		incomplete.push(...nested.lines);
+		i = nested.end - 1;
 	}
 
 	return { lines: incomplete, todoCount };
@@ -244,7 +321,7 @@ function buildNoteContent(
 	return [...frontmatterLines, ...bodyLines].join("\n");
 }
 
-async function ensureFolderExists(app: App, folderPath: string): Promise<void> {
+export async function ensureFolderExists(app: App, folderPath: string): Promise<void> {
 	const existing = app.vault.getAbstractFileByPath(folderPath);
 	if (existing) {
 		return;

@@ -4,6 +4,7 @@ import {
 	DailyTodoSettingTab,
 	type DailyTodoSettings,
 } from "./settings";
+import { needsFirstRunSetup, showFirstRunSetup } from "./first-run-setup";
 import { rolloverTodos } from "./todo-rollover";
 
 export default class DailyTodoPlugin extends Plugin {
@@ -32,7 +33,12 @@ export default class DailyTodoPlugin extends Plugin {
 	}
 
 	async loadSettings(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const saved = await this.loadData();
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
+		if (this.settings.setupComplete === undefined) {
+			this.settings.setupComplete =
+				saved != null && typeof saved === "object" && Object.keys(saved).length > 0;
+		}
 	}
 
 	async saveSettings(): Promise<void> {
@@ -41,6 +47,11 @@ export default class DailyTodoPlugin extends Plugin {
 
 	private async createTodaysTodo(): Promise<void> {
 		try {
+			if (needsFirstRunSetup(this.app, this.settings)) {
+				await showFirstRunSetup(this);
+				return;
+			}
+
 			await rolloverTodos(this.app, this.settings);
 		} catch (error) {
 			console.error("Daily TODO rollover failed:", error);

@@ -15,13 +15,15 @@ export interface DailyTodoSettings {
 	fileNameSuffix: string;
 	todoTag: string;
 	includeHeading: boolean;
+	setupComplete: boolean;
 }
 
 export const DEFAULT_SETTINGS: DailyTodoSettings = {
-	todoFolder: "TODO",
+	todoFolder: "",
 	fileNameSuffix: "TODO",
 	todoTag: "todo",
 	includeHeading: true,
+	setupComplete: false,
 };
 
 export class DailyTodoSettingTab extends PluginSettingTab {
@@ -39,8 +41,7 @@ export class DailyTodoSettingTab extends PluginSettingTab {
 		containerEl.createEl("h2", { text: "Daily TODO settings" });
 
 		const folderPaths = getVaultFolderPaths(this.app);
-		const currentFolder =
-			this.plugin.settings.todoFolder.trim() || DEFAULT_SETTINGS.todoFolder;
+		const currentFolder = this.plugin.settings.todoFolder.trim();
 		if (currentFolder && !folderPaths.includes(currentFolder)) {
 			folderPaths.unshift(currentFolder);
 		}
@@ -49,7 +50,10 @@ export class DailyTodoSettingTab extends PluginSettingTab {
 			.setName("TODO folder")
 			.setDesc("Vault folder where daily TODO notes are stored.")
 			.addDropdown((dropdown) => {
-				if (folderPaths.length === 0) {
+				if (!currentFolder) {
+					dropdown.addOption("", "Not configured — use the ribbon icon to set up");
+				}
+				if (folderPaths.length === 0 && !currentFolder) {
 					dropdown.addOption("TODO", "TODO (will be created)");
 				} else {
 					for (const path of folderPaths) {
@@ -58,9 +62,10 @@ export class DailyTodoSettingTab extends PluginSettingTab {
 				}
 
 				dropdown
-					.setValue(currentFolder)
+					.setValue(currentFolder || "")
 					.onChange(async (value) => {
 						this.plugin.settings.todoFolder = value;
+						this.plugin.settings.setupComplete = true;
 						await this.plugin.saveSettings();
 					});
 			});
