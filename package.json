@@ -1,6 +1,6 @@
 {
 	"name": "dailytodo",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"description": "Roll over incomplete todos into today's daily TODO note.",
 	"main": "main.js",
 	"repository": {
