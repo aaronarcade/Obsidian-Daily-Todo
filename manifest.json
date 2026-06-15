@@ -1,7 +1,7 @@
 {
 	"id": "dailytodo",
 	"name": "Daily TODO",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"minAppVersion": "1.4.0",
 	"description": "Roll over incomplete todos from the most recent daily TODO file into today's note.",
 	"author": "Aaron Brown",
